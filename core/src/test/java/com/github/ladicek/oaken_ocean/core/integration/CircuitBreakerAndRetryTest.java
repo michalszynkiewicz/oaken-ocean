@@ -23,9 +23,8 @@ public class CircuitBreakerAndRetryTest {
         Callable<String> operation =
                 retry(
                         circuitBreaker(
-                                TestAction.initiallyFailing(2, TestException::new, () -> "foobar"),
                                 recorder
-                        )
+                        ).callable(TestAction.initiallyFailing(2, TestException::new, () -> "foobar"))
                 );
 
         assertThat(operation.call()).isEqualTo("foobar");
@@ -43,10 +42,8 @@ public class CircuitBreakerAndRetryTest {
         // doing 6 attemps (1 initial + 5 retries)
         Callable<String> operation =
                 retry(
-                        circuitBreaker(
-                                TestAction.initiallyFailing(5, TestException::new, () -> "foobar"),
-                                recorder
-                        )
+                      circuitBreaker(recorder)
+                            .callable(TestAction.initiallyFailing(5, TestException::new, () -> "foobar"))
                 );
 
         assertThat(operation.call()).isEqualTo("foobar");
@@ -64,10 +61,8 @@ public class CircuitBreakerAndRetryTest {
         // doing 11 attemps (1 initial + 10 retries, because max retries = 10)
         Callable<String> operation =
                 retry(
-                        circuitBreaker(
-                                TestAction.initiallyFailing(5, TestException::new, () -> "foobar"),
-                                100, recorder
-                        )
+                      circuitBreaker(100, recorder)
+                            .callable(TestAction.initiallyFailing(5, TestException::new, () -> "foobar"))
                 );
 
         assertThatThrownBy(operation::call).hasMessage("retry reached max retries or max retry duration");

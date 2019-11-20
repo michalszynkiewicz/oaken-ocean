@@ -27,13 +27,13 @@ final class Strategies {
                 SetOfThrowables.EMPTY, 10, 0, Delay.NONE, new TestStopwatch());
     }
 
-    static <V> CircuitBreaker<V> circuitBreaker(Callable<V> delegate, CircuitBreakerListener listener) {
-        return circuitBreaker(delegate, 0, listener);
+    static CircuitBreaker circuitBreaker(CircuitBreakerListener listener) {
+        return circuitBreaker(0, listener);
     }
 
-    static <V> CircuitBreaker<V> circuitBreaker(Callable<V> delegate, int delayInMillis, CircuitBreakerListener listener) {
-        CircuitBreaker<V> result = new CircuitBreaker<>(delegate, "circuit breaker", SetOfThrowables.ALL,
-                delayInMillis, 5, 0.2, 3, new TestStopwatch());
+    static CircuitBreaker circuitBreaker(int delayInMillis, CircuitBreakerListener listener) {
+        CircuitBreaker result = new CircuitBreaker("circuit breaker", SetOfThrowables.ALL,
+              delayInMillis, 5, 0.2, 3, new TestStopwatch());
         result.addListener(listener);
         return result;
     }

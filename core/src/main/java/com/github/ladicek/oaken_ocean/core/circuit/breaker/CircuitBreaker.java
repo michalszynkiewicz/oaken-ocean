@@ -14,12 +14,11 @@ import java.util.concurrent.atomic.AtomicReference;
 import static com.github.ladicek.oaken_ocean.core.util.Preconditions.check;
 import static com.github.ladicek.oaken_ocean.core.util.Preconditions.checkNotNull;
 
-public class CircuitBreaker<V> implements Callable<V> {
+public class CircuitBreaker {
     private static final int STATE_CLOSED = 0;
     private static final int STATE_OPEN = 1;
     private static final int STATE_HALF_OPEN = 2;
 
-    private final Callable<V> delegate;
     private final String description;
 
     private final SetOfThrowables failOn;
@@ -33,9 +32,8 @@ public class CircuitBreaker<V> implements Callable<V> {
 
     private final AtomicReference<State> state;
 
-    public CircuitBreaker(Callable<V> delegate, String description, SetOfThrowables failOn, long delayInMillis,
+    public CircuitBreaker(String description, SetOfThrowables failOn, long delayInMillis,
                           int requestVolumeThreshold, double failureRatio, int successThreshold, Stopwatch stopwatch) {
-        this.delegate = checkNotNull(delegate, "Circuit breaker action must be set");
         this.description = checkNotNull(description, "Circuit breaker action description must be set");
         this.failOn = checkNotNull(failOn, "Set of fail-on throwables must be set");
         this.delayInMillis = check(delayInMillis, delayInMillis >= 0, "Circuit breaker delay must be >= 0");
@@ -47,25 +45,32 @@ public class CircuitBreaker<V> implements Callable<V> {
         this.state = new AtomicReference<>(State.closed(rollingWindowSize, failureThreshold));
     }
 
-    @Override
-    public V call() throws Exception {
-        // this is the only place where `state` can be dereferenced!
-        // it must be passed through as a parameter to all the state methods,
-        // so that they don't see the circuit breaker moving to a different state under them
-        State state = this.state.get();
-        switch (state.id) {
+    public <V> Callable<V> callable(final Callable<V> delegate) {
+        checkNotNull(delegate, "Circuit breaker action must be set");
+        return () -> {
+            // this is the only place where `state` can be dereferenced!
+            // it must be passed through as a parameter to all the state methods,
+            // so that they don't see the circuit breaker moving to a different state under them
+            return CircuitBreaker.this.performCall(delegate);
+        };
+    }
+
+    private <V> V performCall(Callable<V> delegate) throws Exception {
+        State currentState = state.get();
+        switch (currentState.id) {
             case STATE_CLOSED:
-                return inClosed(state);
+                return inClosed(delegate, currentState);
             case STATE_OPEN:
-                return inOpen(state);
+                return inOpen(delegate, currentState);
             case STATE_HALF_OPEN:
-                return inHalfOpen(state);
+                return inHalfOpen(delegate, currentState);
             default:
-                throw new AssertionError("Invalid circuit breaker state: " + state.id);
+                throw new AssertionError("Invalid circuit breaker state: " + currentState.id);
         }
     }
 
-    private V inClosed(State state) throws Exception {
+
+    private <V> V inClosed(Callable<V> delegate, State state) throws Exception {
         try {
             V result = delegate.call();
             boolean failureThresholdReached = state.rollingWindow.recordSuccess();
@@ -90,18 +95,18 @@ public class CircuitBreaker<V> implements Callable<V> {
         }
     }
 
-    private V inOpen(State state) throws Exception {
+    private <V> V inOpen(Callable<V> delegate, State state) throws Exception {
         if (state.runningStopwatch.elapsedTimeInMillis() < delayInMillis) {
             listeners.forEach(CircuitBreakerListener::rejected);
             throw new CircuitBreakerOpenException(description + " circuit breaker is open");
         } else {
             toHalfOpen(state);
             // start over to re-read current state; no hard guarantee that it's HALF_OPEN at this point
-            return call();
+            return performCall(delegate);
         }
     }
 
-    private V inHalfOpen(State state) throws Exception {
+    private <V> V inHalfOpen(Callable<V> delegate, State state) throws Exception {
         try {
             V result = delegate.call();
             int successes = state.consecutiveSuccesses.incrementAndGet();
