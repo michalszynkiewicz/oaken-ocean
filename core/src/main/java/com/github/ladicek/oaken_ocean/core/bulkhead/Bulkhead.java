@@ -7,6 +7,7 @@ import java.util.concurrent.Semaphore;
 
 /**
  * this class is a one big TODO :)
+ *
  * @author Michal Szynkiewicz, michal.l.szynkiewicz@gmail.com
  */
 public class Bulkhead {
@@ -19,7 +20,16 @@ public class Bulkhead {
 
     public <V> Callable<V> callable(Callable<V> delegate) {
         if (bulkheadSemaphore.tryAcquire()) {
-            return delegate;
+            return new Callable<V>() {
+                @Override
+                public V call() throws Exception {
+                    try {
+                        return delegate.call();
+                    } finally {
+                        bulkheadSemaphore.release();
+                    }
+                }
+            };
         } else {
             throw new BulkheadException(); // mstodo
         }
