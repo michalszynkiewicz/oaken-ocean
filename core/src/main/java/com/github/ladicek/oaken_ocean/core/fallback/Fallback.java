@@ -7,11 +7,16 @@ public class Fallback<V> implements Callable<V> {
     private final String description;
 
     private final FallbackFunction<V> fallback;
+    private final MetricsRecorder metricsRecorder;
 
-    public Fallback(Callable<V> delegate, String description, FallbackFunction<V> fallback) {
+    public Fallback(Callable<V> delegate,
+                    String description,
+                    FallbackFunction<V> fallback,
+                    MetricsRecorder metricsRecorder) {
         this.delegate = delegate;
         this.description = description;
         this.fallback = fallback;
+        this.metricsRecorder = metricsRecorder == null ? MetricsRecorder.NO_OP : metricsRecorder;
     }
 
     @Override
@@ -29,6 +34,7 @@ public class Fallback<V> implements Callable<V> {
         }
 
         try {
+            metricsRecorder.fallbackCalled();
             return fallback.call(failure);
         } catch (InterruptedException e) {
             throw e;
@@ -39,5 +45,12 @@ public class Fallback<V> implements Callable<V> {
 
             throw e;
         }
+    }
+
+    public interface MetricsRecorder {
+        void fallbackCalled();
+
+        MetricsRecorder NO_OP = () -> {
+        };
     }
 }

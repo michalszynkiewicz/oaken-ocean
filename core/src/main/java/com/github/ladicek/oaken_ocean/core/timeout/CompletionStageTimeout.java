@@ -9,8 +9,8 @@ public class CompletionStageTimeout<V> extends Timeout<CompletionStage<V>> {
     private final Executor executor;
 
     public CompletionStageTimeout(Callable<CompletionStage<V>> delegate, String description, long timeoutInMillis,
-                                  TimeoutWatcher watcher, Executor executor) {
-        super(delegate, description, timeoutInMillis, watcher);
+                                  TimeoutWatcher watcher, Executor executor, MetricsRecorder metricsRecorder) {
+        super(delegate, description, timeoutInMillis, watcher, metricsRecorder);
         this.executor = executor;
     }
 

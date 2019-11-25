@@ -7,8 +7,6 @@ import org.eclipse.microprofile.faulttolerance.exceptions.TimeoutException;
 import org.junit.Before;
 import org.junit.Test;
 
-import java.util.concurrent.Callable;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutionException;
 
@@ -39,21 +37,21 @@ public class CompletionStageTimeoutTest {
     @Test
     public void negativeTimeout() {
         TestAction<CompletionStage<String>> action = TestAction.immediatelyReturning(() -> completedStage("foobar"));
-        assertThatThrownBy(() -> new CompletionStageTimeout<>(action, "test action", -1, timeoutWatcher, testExecutor))
+        assertThatThrownBy(() -> new CompletionStageTimeout<>(action, "test action", -1, timeoutWatcher, testExecutor, null))
                 .isExactlyInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
     public void zeroTimeout() {
         TestAction<CompletionStage<String>> action = TestAction.immediatelyReturning(() -> completedStage("foobar"));
-        assertThatThrownBy(() -> new CompletionStageTimeout<>(action, "test action", 0, timeoutWatcher, testExecutor))
+        assertThatThrownBy(() -> new CompletionStageTimeout<>(action, "test action", 0, timeoutWatcher, testExecutor, null))
                 .isExactlyInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
     public void immediatelyReturning_value() throws Exception {
         TestAction<CompletionStage<String>> action = TestAction.immediatelyReturning(() -> completedStage("foobar"));
-        TestThread<CompletionStage<String>> result = runOnTestThread(new CompletionStageTimeout<>(action, "test action", 1000, timeoutWatcher, testExecutor));
+        TestThread<CompletionStage<String>> result = runOnTestThread(new CompletionStageTimeout<>(action, "test action", 1000, timeoutWatcher, testExecutor, null));
         assertThat(result.await().toCompletableFuture().get()).isEqualTo("foobar");
         assertThat(timeoutWatcher.timeoutWatchWasCancelled()).isTrue();
     }
@@ -61,7 +59,7 @@ public class CompletionStageTimeoutTest {
     @Test
     public void immediatelyReturning_directException() throws Exception {
         TestAction<CompletionStage<Void>> action = TestAction.immediatelyReturning(TestException::doThrow);
-        TestThread<CompletionStage<Void>> result = runOnTestThread(new CompletionStageTimeout<>(action, "test action", 1000, timeoutWatcher, testExecutor));
+        TestThread<CompletionStage<Void>> result = runOnTestThread(new CompletionStageTimeout<>(action, "test action", 1000, timeoutWatcher, testExecutor, null));
         assertThatThrownBy(result.await().toCompletableFuture()::get)
                 .isExactlyInstanceOf(ExecutionException.class)
                 .hasCauseExactlyInstanceOf(TestException.class);
@@ -71,7 +69,7 @@ public class CompletionStageTimeoutTest {
     @Test
     public void immediatelyReturning_completionStageException() throws Exception {
         TestAction<CompletionStage<Void>> action = TestAction.immediatelyReturning(() -> failedStage(new TestException()));
-        TestThread<CompletionStage<Void>> result = runOnTestThread(new CompletionStageTimeout<>(action, "test action", 1000, timeoutWatcher, testExecutor));
+        TestThread<CompletionStage<Void>> result = runOnTestThread(new CompletionStageTimeout<>(action, "test action", 1000, timeoutWatcher, testExecutor, null));
         assertThatThrownBy(result.await().toCompletableFuture()::get)
                 .isExactlyInstanceOf(ExecutionException.class)
                 .hasCauseExactlyInstanceOf(TestException.class);
@@ -83,7 +81,7 @@ public class CompletionStageTimeoutTest {
         Barrier actionDelayBarrier = Barrier.interruptible();
 
         TestAction<CompletionStage<String>> action = TestAction.delayed(actionDelayBarrier, () -> completedStage("foobar"));
-        TestThread<CompletionStage<String>> result = runOnTestThread(new CompletionStageTimeout<>(action, "test action", 1000, timeoutWatcher, testExecutor));
+        TestThread<CompletionStage<String>> result = runOnTestThread(new CompletionStageTimeout<>(action, "test action", 1000, timeoutWatcher, testExecutor, null));
         actionDelayBarrier.open();
         assertThat(result.await().toCompletableFuture().get()).isEqualTo("foobar");
         assertThat(timeoutWatcher.timeoutWatchWasCancelled()).isTrue();
@@ -94,7 +92,7 @@ public class CompletionStageTimeoutTest {
         Barrier actionDelayBarrier = Barrier.interruptible();
 
         TestAction<CompletionStage<String>> action = TestAction.delayed(actionDelayBarrier, () -> completedStage("foobar"));
-        TestThread<CompletionStage<String>> result = runOnTestThread(new CompletionStageTimeout<>(action, "test action", 1000, timeoutWatcher, testExecutor));
+        TestThread<CompletionStage<String>> result = runOnTestThread(new CompletionStageTimeout<>(action, "test action", 1000, timeoutWatcher, testExecutor, null));
         watcherTimeoutElapsedBarrier.open();
         watcherExecutionInterruptedBarrier.await();
         assertThatThrownBy(result.await().toCompletableFuture()::get)
@@ -109,7 +107,7 @@ public class CompletionStageTimeoutTest {
         Barrier actionDelayBarrier = Barrier.noninterruptible();
 
         TestAction<CompletionStage<String>> action = TestAction.delayed(actionDelayBarrier, () -> completedStage("foobar"));
-        TestThread<CompletionStage<String>> result = runOnTestThread(new CompletionStageTimeout<>(action, "test action", 1000, timeoutWatcher, testExecutor));
+        TestThread<CompletionStage<String>> result = runOnTestThread(new CompletionStageTimeout<>(action, "test action", 1000, timeoutWatcher, testExecutor, null));
         watcherTimeoutElapsedBarrier.open();
         watcherExecutionInterruptedBarrier.await();
         actionDelayBarrier.open();
@@ -126,7 +124,7 @@ public class CompletionStageTimeoutTest {
         Barrier actionDelayBarrier = Barrier.interruptible();
 
         TestAction<CompletionStage<String>> action = TestAction.delayed(actionStartBarrier, actionDelayBarrier, () -> completedStage("foobar"));
-        TestThread<CompletionStage<String>> result = runOnTestThread(new CompletionStageTimeout<>(action, "test action", 1000, timeoutWatcher, testExecutor));
+        TestThread<CompletionStage<String>> result = runOnTestThread(new CompletionStageTimeout<>(action, "test action", 1000, timeoutWatcher, testExecutor, null));
         actionStartBarrier.await();
         testExecutor.interruptExecutingThread();
         assertThatThrownBy(result.await().toCompletableFuture()::get)
@@ -140,7 +138,7 @@ public class CompletionStageTimeoutTest {
         Barrier actionDelayBarrier = Barrier.interruptible();
 
         TestAction<CompletionStage<Void>> action = TestAction.delayed(actionDelayBarrier, () -> failedStage(new TestException()));
-        TestThread<CompletionStage<Void>> result = runOnTestThread(new CompletionStageTimeout<>(action, "test action", 1000, timeoutWatcher, testExecutor));
+        TestThread<CompletionStage<Void>> result = runOnTestThread(new CompletionStageTimeout<>(action, "test action", 1000, timeoutWatcher, testExecutor, null));
         actionDelayBarrier.open();
         assertThatThrownBy(result.await().toCompletableFuture()::get)
                 .isExactlyInstanceOf(ExecutionException.class)
@@ -153,7 +151,7 @@ public class CompletionStageTimeoutTest {
         Barrier actionDelayBarrier = Barrier.interruptible();
 
         TestAction<CompletionStage<Void>> action = TestAction.delayed(actionDelayBarrier, () -> failedStage(new TestException()));
-        TestThread<CompletionStage<Void>> result = runOnTestThread(new CompletionStageTimeout<>(action, "test action", 1000, timeoutWatcher, testExecutor));
+        TestThread<CompletionStage<Void>> result = runOnTestThread(new CompletionStageTimeout<>(action, "test action", 1000, timeoutWatcher, testExecutor, null));
         watcherTimeoutElapsedBarrier.open();
         watcherExecutionInterruptedBarrier.await();
         assertThatThrownBy(result.await().toCompletableFuture()::get)
@@ -168,7 +166,7 @@ public class CompletionStageTimeoutTest {
         Barrier actionDelayBarrier = Barrier.noninterruptible();
 
         TestAction<CompletionStage<Void>> action = TestAction.delayed(actionDelayBarrier, () -> failedStage(new TestException()));
-        TestThread<CompletionStage<Void>> result = runOnTestThread(new CompletionStageTimeout<>(action, "test action", 1000, timeoutWatcher, testExecutor));
+        TestThread<CompletionStage<Void>> result = runOnTestThread(new CompletionStageTimeout<>(action, "test action", 1000, timeoutWatcher, testExecutor, null));
         watcherTimeoutElapsedBarrier.open();
         watcherExecutionInterruptedBarrier.await();
         actionDelayBarrier.open();
@@ -185,7 +183,7 @@ public class CompletionStageTimeoutTest {
         Barrier actionDelayBarrier = Barrier.interruptible();
 
         TestAction<CompletionStage<Void>> action = TestAction.delayed(actionStartBarrier, actionDelayBarrier, () -> failedStage(new TestException()));
-        TestThread<CompletionStage<Void>> result = runOnTestThread(new CompletionStageTimeout<>(action, "test action", 1000, timeoutWatcher, testExecutor));
+        TestThread<CompletionStage<Void>> result = runOnTestThread(new CompletionStageTimeout<>(action, "test action", 1000, timeoutWatcher, testExecutor, null));
         actionStartBarrier.await();
         testExecutor.interruptExecutingThread();
         assertThatThrownBy(result.await().toCompletableFuture()::get)

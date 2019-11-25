@@ -14,28 +14,28 @@ public class FallbackTest {
     @Test
     public void immediatelyReturning_valueThenValue() throws Exception {
         TestAction<String> action = TestAction.immediatelyReturning(() -> "foobar");
-        TestThread<String> result = TestThread.runOnTestThread(new Fallback<>(action, "test action", e -> "fallback"));
+        TestThread<String> result = TestThread.runOnTestThread(new Fallback<>(action, "test action", e -> "fallback", null));
         assertThat(result.await()).isEqualTo("foobar");
     }
 
     @Test
     public void immediatelyReturning_valueThenException() throws Exception {
         TestAction<String> action = TestAction.immediatelyReturning(() -> "foobar");
-        TestThread<String> result = TestThread.runOnTestThread(new Fallback<>(action, "test action", e -> TestException.doThrow()));
+        TestThread<String> result = TestThread.runOnTestThread(new Fallback<>(action, "test action", e -> TestException.doThrow(), null));
         assertThat(result.await()).isEqualTo("foobar");
     }
 
     @Test
     public void immediatelyReturning_exceptionThenValue() throws Exception {
         TestAction<String> action = TestAction.immediatelyReturning(TestException::doThrow);
-        TestThread<String> result = TestThread.runOnTestThread(new Fallback<>(action, "test action", e-> "fallback"));
+        TestThread<String> result = TestThread.runOnTestThread(new Fallback<>(action, "test action", e-> "fallback", null));
         assertThat(result.await()).isEqualTo("fallback");
     }
 
     @Test
     public void immediatelyReturning_exceptionThenException() {
         TestAction<Void> action = TestAction.immediatelyReturning(TestException::doThrow);
-        TestThread<Void> result = TestThread.runOnTestThread(new Fallback<>(action, "test action", e-> { throw new RuntimeException(); }));
+        TestThread<Void> result = TestThread.runOnTestThread(new Fallback<>(action, "test action", e-> { throw new RuntimeException(); }, null));
         assertThatThrownBy(result::await).isExactlyInstanceOf(RuntimeException.class);
     }
 
@@ -44,7 +44,7 @@ public class FallbackTest {
         Barrier startBarrier = Barrier.interruptible();
         Barrier endBarrier = Barrier.interruptible();
         TestAction<String> action = TestAction.waitingOnBarrier(startBarrier, endBarrier, () -> "foobar");
-        TestThread<String> executingThread = TestThread.runOnTestThread(new Fallback<>(action, "test action", e-> "fallback"));
+        TestThread<String> executingThread = TestThread.runOnTestThread(new Fallback<>(action, "test action", e-> "fallback", null));
         startBarrier.await();
         executingThread.interrupt();
         assertThatThrownBy(executingThread::await).isExactlyInstanceOf(InterruptedException.class);
@@ -60,7 +60,7 @@ public class FallbackTest {
             endBarrier.await();
             return "fallback";
         };
-        TestThread<String> executingThread = TestThread.runOnTestThread(new Fallback<>(action, "test action", fallback));
+        TestThread<String> executingThread = TestThread.runOnTestThread(new Fallback<>(action, "test action", fallback, null));
         startBarrier.await();
         executingThread.interrupt();
         assertThatThrownBy(executingThread::await).isExactlyInstanceOf(InterruptedException.class);
@@ -76,7 +76,7 @@ public class FallbackTest {
             Thread.currentThread().interrupt();
             throw new RuntimeException();
         };
-        TestThread<String> executingThread = TestThread.runOnTestThread(new Fallback<>(action, "test action", e -> "fallback"));
+        TestThread<String> executingThread = TestThread.runOnTestThread(new Fallback<>(action, "test action", e -> "fallback", null));
         startBarrier.await();
         endBarrier.open();
         assertThatThrownBy(executingThread::await).isExactlyInstanceOf(InterruptedException.class);
@@ -93,7 +93,7 @@ public class FallbackTest {
             Thread.currentThread().interrupt();
             throw new RuntimeException();
         };
-        TestThread<String> executingThread = TestThread.runOnTestThread(new Fallback<>(action, "test action", fallback));
+        TestThread<String> executingThread = TestThread.runOnTestThread(new Fallback<>(action, "test action", fallback, null));
         startBarrier.await();
         endBarrier.open();
         assertThatThrownBy(executingThread::await).isExactlyInstanceOf(InterruptedException.class);

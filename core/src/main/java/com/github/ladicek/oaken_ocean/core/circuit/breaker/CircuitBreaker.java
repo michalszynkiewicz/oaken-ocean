@@ -32,8 +32,20 @@ public class CircuitBreaker {
 
     private final AtomicReference<State> state;
 
-    public CircuitBreaker(String description, SetOfThrowables failOn, long delayInMillis,
-                          int requestVolumeThreshold, double failureRatio, int successThreshold, Stopwatch stopwatch) {
+    private final MetricsRecorder metricsRecorder;
+
+    private volatile long halfOpenStart;
+    private volatile long closedStart;
+    private volatile long openStart;
+
+    public CircuitBreaker(String description,
+                          SetOfThrowables failOn,
+                          long delayInMillis,
+                          int requestVolumeThreshold,
+                          double failureRatio,
+                          int successThreshold,
+                          Stopwatch stopwatch,
+                          MetricsRecorder metricsRecorder) {
         this.description = checkNotNull(description, "Circuit breaker action description must be set");
         this.failOn = checkNotNull(failOn, "Set of fail-on throwables must be set");
         this.delayInMillis = check(delayInMillis, delayInMillis >= 0, "Circuit breaker delay must be >= 0");
@@ -43,6 +55,9 @@ public class CircuitBreaker {
         this.stopwatch = checkNotNull(stopwatch, "Stopwatch must be set");
 
         this.state = new AtomicReference<>(State.closed(rollingWindowSize, failureThreshold));
+
+        this.metricsRecorder = metricsRecorder == null ? MetricsRecorder.NO_OP : metricsRecorder;
+        this.closedStart = System.nanoTime();
     }
 
     public <V> Callable<V> callable(final Callable<V> delegate) {
@@ -73,6 +88,7 @@ public class CircuitBreaker {
     private <V> V inClosed(Callable<V> delegate, State state) throws Exception {
         try {
             V result = delegate.call();
+            metricsRecorder.circuitBreakerSucceeded();
             boolean failureThresholdReached = state.rollingWindow.recordSuccess();
             if (failureThresholdReached) {
                 toOpen(state);
@@ -80,6 +96,7 @@ public class CircuitBreaker {
             listeners.forEach(CircuitBreakerListener::succeeded);
             return result;
         } catch (Throwable e) {
+            metricsRecorder.circuitBreakerFailed();
             boolean isFailure = failOn.includes(e.getClass());
             if (isFailure) {
                 listeners.forEach(CircuitBreakerListener::failed);
@@ -89,6 +106,12 @@ public class CircuitBreaker {
             boolean failureThresholdReached = isFailure
                     ? state.rollingWindow.recordFailure() : state.rollingWindow.recordSuccess();
             if (failureThresholdReached) {
+                long now = System.nanoTime();
+
+                openStart = now;
+                metricsRecorder.circuitBreakerClosedTime(now - closedStart);
+                metricsRecorder.circuitBreakerClosedToOpen();
+
                 toOpen(state);
             }
             throw e;
@@ -97,9 +120,15 @@ public class CircuitBreaker {
 
     private <V> V inOpen(Callable<V> delegate, State state) throws Exception {
         if (state.runningStopwatch.elapsedTimeInMillis() < delayInMillis) {
+            metricsRecorder.circuitBreakerRejected();
             listeners.forEach(CircuitBreakerListener::rejected);
             throw new CircuitBreakerOpenException(description + " circuit breaker is open");
         } else {
+            long now = System.nanoTime();
+
+            halfOpenStart = now;
+            metricsRecorder.circuitBreakerOpenTime(now - openStart);
+
             toHalfOpen(state);
             // start over to re-read current state; no hard guarantee that it's HALF_OPEN at this point
             return performCall(delegate);
@@ -109,13 +138,20 @@ public class CircuitBreaker {
     private <V> V inHalfOpen(Callable<V> delegate, State state) throws Exception {
         try {
             V result = delegate.call();
+            metricsRecorder.circuitBreakerSucceeded();
+
             int successes = state.consecutiveSuccesses.incrementAndGet();
             if (successes >= successThreshold) {
+                long now = System.nanoTime();
+                closedStart = now;
+                metricsRecorder.circuitBreakerHalfOpenTime(now - halfOpenStart);
+
                 toClosed(state);
             }
             listeners.forEach(CircuitBreakerListener::succeeded);
             return result;
         } catch (Throwable e) {
+            metricsRecorder.circuitBreakerFailed();
             listeners.forEach(CircuitBreakerListener::failed);
             toOpen(state);
             throw e;
@@ -168,5 +204,44 @@ public class CircuitBreaker {
 
     public void addListener(CircuitBreakerListener listener) {
         listeners.add(listener);
+    }
+
+    public interface MetricsRecorder {
+        void circuitBreakerRejected();
+        void circuitBreakerOpenTime(long time);
+        void circuitBreakerHalfOpenTime(long time);
+        void circuitBreakerClosedTime(long time);
+        void circuitBreakerClosedToOpen();
+        void circuitBreakerFailed();
+        void circuitBreakerSucceeded();
+        MetricsRecorder NO_OP = new MetricsRecorder() {
+            @Override
+            public void circuitBreakerRejected() {
+            }
+
+            @Override
+            public void circuitBreakerOpenTime(long time) {
+            }
+
+            @Override
+            public void circuitBreakerHalfOpenTime(long time) {
+            }
+
+            @Override
+            public void circuitBreakerClosedTime(long time) {
+            }
+
+            @Override
+            public void circuitBreakerClosedToOpen() {
+            }
+
+            @Override
+            public void circuitBreakerFailed() {
+            }
+
+            @Override
+            public void circuitBreakerSucceeded() {
+            }
+        };
     }
 }

@@ -57,7 +57,7 @@ public class RealWorldCompletionStageTimeoutTest {
         Callable<CompletionStage<String>> timeout = new CompletionStageTimeout<>(() -> {
             Thread.sleep(100);
             return completedStage("foobar");
-        }, "completion stage timeout", 1000, watcher, taskExecutor);
+        }, "completion stage timeout", 1000, watcher, taskExecutor, null);
 
         assertThat(timeout.call().toCompletableFuture().get()).isEqualTo("foobar");
         assertThat(runningStopwatch.elapsedTimeInMillis()).isCloseTo(100, tolerance);
@@ -70,7 +70,7 @@ public class RealWorldCompletionStageTimeoutTest {
         Callable<CompletionStage<String>> timeout = new CompletionStageTimeout<>(() -> {
             Thread.sleep(100);
             throw new TestException();
-        }, "completion stage timeout", 1000, watcher, taskExecutor);
+        }, "completion stage timeout", 1000, watcher, taskExecutor, null);
 
         assertThatThrownBy(timeout.call().toCompletableFuture()::get)
                 .isExactlyInstanceOf(ExecutionException.class)
@@ -85,7 +85,7 @@ public class RealWorldCompletionStageTimeoutTest {
         Callable<CompletionStage<String>> timeout = new CompletionStageTimeout<>(() -> {
             Thread.sleep(100);
             return failedStage(new TestException());
-        }, "completion stage timeout", 1000, watcher, taskExecutor);
+        }, "completion stage timeout", 1000, watcher, taskExecutor, null);
 
         assertThatThrownBy(timeout.call().toCompletableFuture()::get)
                 .isExactlyInstanceOf(ExecutionException.class)
@@ -100,7 +100,7 @@ public class RealWorldCompletionStageTimeoutTest {
         Callable<CompletionStage<String>> timeout = new CompletionStageTimeout<>(() -> {
             Thread.sleep(1000);
             return completedStage("foobar");
-        }, "completion stage timeout", 500, watcher, taskExecutor);
+        }, "completion stage timeout", 500, watcher, taskExecutor, null);
 
         assertThatThrownBy(timeout.call().toCompletableFuture()::get)
                 .isExactlyInstanceOf(ExecutionException.class)

@@ -42,7 +42,7 @@ public class CircuitBreakerTest {
                 () -> "foobar10"
         );
         CircuitBreaker cb = new CircuitBreaker("test action", testException,
-                1000, 4, 0.5, 2, stopwatch);
+                1000, 4, 0.5, 2, stopwatch, null);
 
         // circuit breaker is closed
         assertThat(cb.callable(action).call()).isEqualTo("foobar1");
@@ -90,7 +90,7 @@ public class CircuitBreakerTest {
                 () -> "foobar5"
         );
         CircuitBreaker cb = new CircuitBreaker("test action", testException,
-                1000, 4, 0.5, 2, stopwatch);
+                1000, 4, 0.5, 2, stopwatch, null);
 
 
         // circuit breaker is closed
