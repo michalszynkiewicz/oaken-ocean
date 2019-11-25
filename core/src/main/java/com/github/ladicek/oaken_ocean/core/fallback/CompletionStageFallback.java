@@ -11,8 +11,9 @@ public class CompletionStageFallback<V> extends Fallback<CompletionStage<V>> {
     private final Executor executor;
 
     public CompletionStageFallback(FaultToleranceStrategy<CompletionStage<V>> delegate, String description,
-                                   FallbackFunction<CompletionStage<V>> fallback, Executor executor) {
-        super(delegate, description, fallback);
+                                   FallbackFunction<CompletionStage<V>> fallback, Executor executor,
+                                   MetricsRecorder metricsRecorder) {
+        super(delegate, description, fallback, metricsRecorder);
         this.executor = executor;
     }
 

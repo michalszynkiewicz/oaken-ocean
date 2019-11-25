@@ -19,13 +19,13 @@ import java.util.concurrent.Callable;
  */
 final class Strategies {
     static Fallback<String> fallback(FaultToleranceStrategy<String> delegate) {
-        return new Fallback<>(delegate, "fallback", e -> "fallback after [" + e.getMessage() + "]");
+        return new Fallback<>(delegate, "fallback", e -> "fallback after [" + e.getMessage() + "]", null);
     }
 
     static <V> Retry<V> retry(FaultToleranceStrategy<V> delegate) {
         return new Retry<>(delegate, "retry",
                 SetOfThrowables.withoutCustomThrowables(Collections.singletonList(Exception.class)),
-                SetOfThrowables.EMPTY, 10, 0, Delay.NONE, new TestStopwatch());
+                SetOfThrowables.EMPTY, 10, 0, Delay.NONE, new TestStopwatch(), null);
     }
 
     static <V> CircuitBreaker<V> circuitBreaker(FaultToleranceStrategy<V> delegate, CircuitBreakerListener listener) {
@@ -34,7 +34,7 @@ final class Strategies {
 
     static <V> CircuitBreaker<V> circuitBreaker(FaultToleranceStrategy<V> delegate, int delayInMillis, CircuitBreakerListener listener) {
         CircuitBreaker<V> result = new CircuitBreaker<>(delegate, "circuit breaker", SetOfThrowables.ALL,
-                delayInMillis, 5, 0.2, 3, new TestStopwatch());
+                delayInMillis, 5, 0.2, 3, new TestStopwatch(), null);
         result.addListener(listener);
         return result;
     }
