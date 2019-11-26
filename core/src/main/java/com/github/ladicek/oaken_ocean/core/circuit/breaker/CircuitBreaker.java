@@ -96,12 +96,13 @@ public class CircuitBreaker {
             listeners.forEach(CircuitBreakerListener::succeeded);
             return result;
         } catch (Throwable e) {
-            metricsRecorder.circuitBreakerFailed();
             boolean isFailure = failOn.includes(e.getClass());
             if (isFailure) {
                 listeners.forEach(CircuitBreakerListener::failed);
+                metricsRecorder.circuitBreakerFailed();
             } else {
                 listeners.forEach(CircuitBreakerListener::succeeded);
+                metricsRecorder.circuitBreakerSucceeded();
             }
             boolean failureThresholdReached = isFailure
                     ? state.rollingWindow.recordFailure() : state.rollingWindow.recordSuccess();

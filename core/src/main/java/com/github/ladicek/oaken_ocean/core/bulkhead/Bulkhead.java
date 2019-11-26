@@ -23,28 +23,28 @@ public class Bulkhead {
     }
 
     public <V> Callable<V> callable(Callable<V> delegate) {
-        if (false) { //mstodo if async exec
-            recorder.bulkheadQueueEntered();
-        }
-        recorder.bulkheadQueueEntered(); // mstodo needed or not?
-        if (bulkheadSemaphore.tryAcquire()) {
-            recorder.bulkheadEntered(0L); // mstodo do it only for async execution
-            long startTime = System.nanoTime();
-            return new Callable<V>() {
-                @Override
-                public V call() throws Exception {
+        return new Callable<V>() {
+            @Override
+            public V call() throws Exception {
+                if (false) { //mstodo if async exec
+                    recorder.bulkheadQueueEntered();
+                }
+                recorder.bulkheadQueueEntered(); // mstodo needed or not?
+                if (bulkheadSemaphore.tryAcquire()) {
+                    recorder.bulkheadEntered(0L); // mstodo do it only for async execution
+                    long startTime = System.nanoTime();
                     try {
                         return delegate.call();
                     } finally {
                         bulkheadSemaphore.release();
                         recorder.bulkheadLeft(System.nanoTime() - startTime);
                     }
+                } else {
+                    recorder.bulkheadRejected();
+                    throw new BulkheadException(); // mstodo
                 }
-            };
-        } else {
-            recorder.bulkheadRejected();
-            throw new BulkheadException(); // mstodo
-        }
+            }
+        };
     }
 
     public interface MetricsRecorder {
